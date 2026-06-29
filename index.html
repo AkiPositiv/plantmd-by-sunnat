@@ -347,7 +347,7 @@
   <p class="lang-prompt">Select language / Tilni tanlang</p>
   <div class="lang-btns">
     <div class="key-wrap">
-      <input type="password" id="key-in" placeholder="OpenAI API Key  sk-proj-..." autocomplete="off" oninput="onKeyInput(this.value)">
+      <input type="password" id="key-in" placeholder="Gemini API Key  AIzaSy..." autocomplete="off" oninput="onKeyInput(this.value)">
     </div>
     <button class="lang-btn" id="btn-ru" onclick="setLang('ru')" disabled>
       <span class="flag">🇷🇺</span> Русский
@@ -409,7 +409,7 @@
 <script>
 /* ── Config ──────────────────────────── */
 // API key is entered by the user on the language screen and stored in localStorage
-let API_KEY = localStorage.getItem('plantmd_key') || '';
+let API_KEY = localStorage.getItem('plantmd_gemini_key') || '';
 
 /* ── Translations ────────────────────── */
 const T = {
@@ -507,7 +507,7 @@ function nav(id) {
 
 /* ── API Key input ───────────────────── */
 function onKeyInput(val) {
-  const ok = val.trim().startsWith('sk-');
+  const ok = val.trim().startsWith('AIza');
   _id('btn-ru').disabled = !ok;
   _id('btn-uz').disabled = !ok;
 }
@@ -523,7 +523,7 @@ window.addEventListener('DOMContentLoaded', () => {
 /* ── Language ────────────────────────── */
 function setLang(l) {
   API_KEY = _id('key-in').value.trim();
-  localStorage.setItem('plantmd_key', API_KEY);
+  localStorage.setItem('plantmd_gemini_key', API_KEY);
   lang = l;
   const t = T[l];
   _id('t-title').textContent       = t.title;
@@ -594,29 +594,34 @@ async function analyze() {
   _id('analyze-btn').disabled = true;
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+    const parts = [
+      { text: t.prompt(symptoms, images.length) },
+      ...images.map(dataUrl => ({
+        inline_data: {
+          mime_type: dataUrl.split(';')[0].split(':')[1],
+          data: dataUrl.split(',')[1],
+        },
+      })),
+    ];
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: t.prompt(symptoms, images.length) },
-            ...images.map(url => ({ type: 'image_url', image_url: { url } }))
-          ]
-        }],
-        max_tokens: 2000,
+        contents: [{ parts }],
+        generationConfig: { maxOutputTokens: 2000 },
       }),
     });
 
-    if (!res.ok) throw new Error(`API ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
 
     const data = await res.json();
-    let text = data.choices[0].message.content
+    let text = data.candidates[0].content.parts[0].text
       .replace(/\*\*/g, '').replace(/\*/g, '')
       .replace(/^#{1,3} ?/gm, '').replace(/__/g, '').trim();
 
