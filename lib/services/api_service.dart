@@ -6,7 +6,7 @@ import '../config/secrets.dart';
 class ApiService {
   static const _apiKey = geminiApiKey;
   static const _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   Future<String> getDiagnosis({
     required List<File> images,
